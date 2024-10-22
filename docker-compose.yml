@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: aluno_online_em_sala_2024_2
+    environment:
+      POSTGRES_DB: aluno_online_em_sala_2024_2
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - aluno_online_network
+
+volumes:
+  postgres_data:
+
+networks:
+  aluno_online_network:
