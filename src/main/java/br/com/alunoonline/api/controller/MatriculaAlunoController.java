@@ -19,4 +19,10 @@ public class MatriculaAlunoController {
         matriculaAlunoService.criarMatricula(matriculaAluno);
     }
 
+    @PatchMapping("/trancar/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void trancarMatricula(@PathVariable Long id) {
+        matriculaAlunoService.trancarMatricula(id);
+    }
+
 }
