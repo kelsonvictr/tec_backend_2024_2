@@ -1,5 +1,6 @@
 package br.com.alunoonline.api.controller;
 
+import br.com.alunoonline.api.dtos.AtualizarNotasRequest;
 import br.com.alunoonline.api.model.MatriculaAluno;
 import br.com.alunoonline.api.service.MatriculaAlunoService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,4 +26,11 @@ public class MatriculaAlunoController {
         matriculaAlunoService.trancarMatricula(id);
     }
 
+    @PatchMapping("/atualiza-notas/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void atualizaNotas(@RequestBody AtualizarNotasRequest atualizarNotasRequest,
+                                @PathVariable Long id)
+    {
+        matriculaAlunoService.atualizaNotas(id, atualizarNotasRequest);
+    }
 }
