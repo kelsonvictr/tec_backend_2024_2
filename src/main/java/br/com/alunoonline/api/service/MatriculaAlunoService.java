@@ -1,6 +1,7 @@
 package br.com.alunoonline.api.service;
 
 import br.com.alunoonline.api.dtos.AtualizarNotasRequest;
+import br.com.alunoonline.api.dtos.DisciplinasAlunoResponse;
 import br.com.alunoonline.api.dtos.HistoricoAlunoResponse;
 import br.com.alunoonline.api.enums.MatriculaAlunoStatusEnum;
 import br.com.alunoonline.api.model.MatriculaAluno;
@@ -10,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -94,7 +96,38 @@ public class MatriculaAlunoService {
                     "Esse aluno não possui matriculas");
         }
 
-        return null;
+        HistoricoAlunoResponse historicoAluno = new HistoricoAlunoResponse();
+        historicoAluno.setNomeAluno(matriculasDoAluno.get(0).getAluno().getNome());
+        historicoAluno.setCpfAluno(matriculasDoAluno.get(0).getAluno().getCpf());
+        historicoAluno.setEmailAluno(matriculasDoAluno.get(0).getAluno().getEmail());
+
+        List<DisciplinasAlunoResponse> displinasList = new ArrayList<>();
+
+        for (MatriculaAluno matriculaAluno : matriculasDoAluno) {
+            DisciplinasAlunoResponse disciplinasAlunoResponse = new DisciplinasAlunoResponse();
+            disciplinasAlunoResponse.setNomeDisciplina(matriculaAluno.getDisciplina().getNome());
+            disciplinasAlunoResponse.setNomeProfessor(matriculaAluno.getDisciplina().getProfessor().getNome());
+            disciplinasAlunoResponse.setNota1(matriculaAluno.getNota1());
+            disciplinasAlunoResponse.setNota2(matriculaAluno.getNota2());
+
+            // não quero isso nesse método, MAS eu (prof) vou fazer
+            // se possível, reutilize o método de calcula média acima
+            // refatore ele.
+
+            if (matriculaAluno.getNota1() != null && matriculaAluno.getNota2() != null) {
+                disciplinasAlunoResponse.setMedia((matriculaAluno.getNota1() + matriculaAluno.getNota2()) / 2.0);
+            } else {
+                disciplinasAlunoResponse.setMedia(null);
+            }
+
+            disciplinasAlunoResponse.setStatus(matriculaAluno.getStatus());
+
+            displinasList.add(disciplinasAlunoResponse);
+        }
+
+        historicoAluno.setDisciplinasAlunoResponses(displinasList);
+
+        return historicoAluno;
     }
 
 
