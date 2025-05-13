@@ -11,89 +11,70 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class MatriculaAlunoService {
 
-    public static final double MEDIA_PARA_APROVACAO = 7.0;
+    private static final double MEDIA_PARA_APROVACAO = 7.0;
 
     @Autowired
-    MatriculaAlunoRepository matriculaAlunoRepository;
+    private MatriculaAlunoRepository matriculaAlunoRepository;
 
-    /*
-    É aqui que o aluno vai se matricular
+    /**
+     * Realiza a matrícula do aluno em uma disciplina.
+     * Define o status inicial como MATRICULADO e salva no banco.
      */
     public void criarMatricula(MatriculaAluno matriculaAluno) {
         matriculaAluno.setStatus(MatriculaAlunoStatusEnum.MATRICULADO);
         matriculaAlunoRepository.save(matriculaAluno);
     }
 
-    /*
-    É aqui que o aluno vai trancar sua matricula em alguma disciplina
+    /**
+     * Permite que um aluno tranque sua matrícula em uma disciplina.
+     * Apenas matrículas com status MATRICULADO podem ser trancadas.
      */
     public void trancarMatricula(Long matriculaAlunoId) {
-        MatriculaAluno matriculaAluno =
-                matriculaAlunoRepository.findById(matriculaAlunoId)
-                        .orElseThrow(() ->
-                                new ResponseStatusException(HttpStatus.NOT_FOUND,
-                                        "Matricula Aluno não encontrada!"));
+        MatriculaAluno matriculaAluno = buscarMatriculaOuLancarExcecao(matriculaAlunoId);
 
-        if (!MatriculaAlunoStatusEnum.MATRICULADO.equals(matriculaAluno.getStatus())) {
-            // Lançar o erro se o status não for matriculado
+        if (!matriculaAluno.getStatus().equals(MatriculaAlunoStatusEnum.MATRICULADO)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Só é possível trancar uma matricula com o status MATRICULADO");
+                    "Só é possível trancar uma matrícula com o status MATRICULADO");
         }
 
         matriculaAluno.setStatus(MatriculaAlunoStatusEnum.TRANCADO);
         matriculaAlunoRepository.save(matriculaAluno);
     }
 
-    public void atualizaNotas(Long matriculaAlunoId,
-                              AtualizarNotasRequest atualizarNotasRequest) {
-        MatriculaAluno matriculaAluno =
-                matriculaAlunoRepository.findById(matriculaAlunoId)
-                        .orElseThrow(() ->
-                                new ResponseStatusException(HttpStatus.NOT_FOUND,
-                                        "Matricula Aluno não encontrada!"));
+    /**
+     * Atualiza as notas de um aluno em uma disciplina.
+     * Se a nota não for enviada, mantém o valor atual.
+     * Após atualizar as notas, recalcula a média e ajusta o status.
+     */
+    public void atualizarNotas(Long matriculaAlunoId, AtualizarNotasRequest atualizarNotasRequest) {
+        MatriculaAluno matriculaAluno = buscarMatriculaOuLancarExcecao(matriculaAlunoId);
 
-        // Verifica se o front tá mandando a nota1
-        // atualizarNotasRequest.getNota1(): Traz a nota que vem do front
         if (atualizarNotasRequest.getNota1() != null) {
-            // matriculaAluno.setNota1: Atualiza a nota1 que vem atualmente do BD
             matriculaAluno.setNota1(atualizarNotasRequest.getNota1());
         }
 
-        // Verifica se o front tá mandando a nota2
-        // atualizarNotasRequest.getNota2(): Traz a nota que vem do front
         if (atualizarNotasRequest.getNota2() != null) {
-            // matriculaAluno.setNota2: Atualiza a nota1 que vem atualmente do BD
             matriculaAluno.setNota2(atualizarNotasRequest.getNota2());
         }
 
-        calculaMedia(matriculaAluno);
+        calcularMediaEModificarStatus(matriculaAluno);
         matriculaAlunoRepository.save(matriculaAluno);
-
     }
 
-    private void calculaMedia(MatriculaAluno matriculaAluno) {
-        Double nota1 = matriculaAluno.getNota1();
-        Double nota2 = matriculaAluno.getNota2();
-
-        if (nota1 != null && nota2 != null) {
-            Double media = (nota1 + nota2) / 2;
-            matriculaAluno.setStatus(media >= MEDIA_PARA_APROVACAO ? MatriculaAlunoStatusEnum.APROVADO : MatriculaAlunoStatusEnum.REPROVADO);
-
-        }
-    }
-
+    /**
+     * Emite o histórico escolar do aluno, incluindo suas disciplinas, notas e status.
+     */
     public HistoricoAlunoResponse emitirHistorico(Long alunoId) {
         List<MatriculaAluno> matriculasDoAluno = matriculaAlunoRepository.findByAlunoId(alunoId);
 
         if (matriculasDoAluno.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
-                    "Esse aluno não possui matriculas");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Esse aluno não possui matrículas");
         }
 
         HistoricoAlunoResponse historicoAluno = new HistoricoAlunoResponse();
@@ -101,34 +82,55 @@ public class MatriculaAlunoService {
         historicoAluno.setCpfAluno(matriculasDoAluno.get(0).getAluno().getCpf());
         historicoAluno.setEmailAluno(matriculasDoAluno.get(0).getAluno().getEmail());
 
-        List<DisciplinasAlunoResponse> displinasList = new ArrayList<>();
+        List<DisciplinasAlunoResponse> disciplinas = matriculasDoAluno.stream()
+                .map(this::mapearParaDisciplinasAlunoResponse)
+                .collect(Collectors.toList());
 
-        for (MatriculaAluno matriculaAluno : matriculasDoAluno) {
-            DisciplinasAlunoResponse disciplinasAlunoResponse = new DisciplinasAlunoResponse();
-            disciplinasAlunoResponse.setNomeDisciplina(matriculaAluno.getDisciplina().getNome());
-            disciplinasAlunoResponse.setNomeProfessor(matriculaAluno.getDisciplina().getProfessor().getNome());
-            disciplinasAlunoResponse.setNota1(matriculaAluno.getNota1());
-            disciplinasAlunoResponse.setNota2(matriculaAluno.getNota2());
-
-            // não quero isso nesse método, MAS eu (prof) vou fazer
-            // se possível, reutilize o método de calcula média acima
-            // refatore ele.
-
-            if (matriculaAluno.getNota1() != null && matriculaAluno.getNota2() != null) {
-                disciplinasAlunoResponse.setMedia((matriculaAluno.getNota1() + matriculaAluno.getNota2()) / 2.0);
-            } else {
-                disciplinasAlunoResponse.setMedia(null);
-            }
-
-            disciplinasAlunoResponse.setStatus(matriculaAluno.getStatus());
-
-            displinasList.add(disciplinasAlunoResponse);
-        }
-
-        historicoAluno.setDisciplinasAlunoResponses(displinasList);
-
+        historicoAluno.setDisciplinasAlunoResponses(disciplinas);
         return historicoAluno;
     }
 
+    /**
+     * Busca uma matrícula pelo ID ou lança uma exceção caso não exista.
+     */
+    private MatriculaAluno buscarMatriculaOuLancarExcecao(Long matriculaAlunoId) {
+        return matriculaAlunoRepository.findById(matriculaAlunoId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Matrícula do aluno não encontrada!"));
+    }
 
+    /**
+     * Calcula a média das notas e ajusta o status da matrícula (APROVADO ou REPROVADO).
+     */
+    private void calcularMediaEModificarStatus(MatriculaAluno matriculaAluno) {
+        Double nota1 = matriculaAluno.getNota1();
+        Double nota2 = matriculaAluno.getNota2();
+
+        if (nota1 != null && nota2 != null) {
+            double media = (nota1 + nota2) / 2;
+            matriculaAluno.setStatus(media >= MEDIA_PARA_APROVACAO ?
+                    MatriculaAlunoStatusEnum.APROVADO : MatriculaAlunoStatusEnum.REPROVADO);
+        }
+    }
+
+    /**
+     * Mapeia a matrícula para um objeto de resposta contendo informações sobre a disciplina.
+     */
+    private DisciplinasAlunoResponse mapearParaDisciplinasAlunoResponse(MatriculaAluno matriculaAluno) {
+        DisciplinasAlunoResponse response = new DisciplinasAlunoResponse();
+        response.setNomeDisciplina(matriculaAluno.getDisciplina().getNome());
+        response.setNomeProfessor(matriculaAluno.getDisciplina().getProfessor().getNome());
+        response.setNota1(matriculaAluno.getNota1());
+        response.setNota2(matriculaAluno.getNota2());
+        response.setMedia(calcularMedia(matriculaAluno.getNota1(), matriculaAluno.getNota2()));
+        response.setStatus(matriculaAluno.getStatus());
+        return response;
+    }
+
+    /**
+     * Calcula a média de notas de um aluno. Retorna null se alguma das notas for inexistente.
+     */
+    private Double calcularMedia(Double nota1, Double nota2) {
+        return (nota1 != null && nota2 != null) ? (nota1 + nota2) / 2.0 : null;
+    }
 }

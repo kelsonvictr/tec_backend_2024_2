@@ -32,7 +32,7 @@ public class MatriculaAlunoController {
     public void atualizaNotas(@RequestBody AtualizarNotasRequest atualizarNotasRequest,
                                 @PathVariable Long id)
     {
-        matriculaAlunoService.atualizaNotas(id, atualizarNotasRequest);
+        matriculaAlunoService.atualizarNotas(id, atualizarNotasRequest);
     }
 
     @GetMapping("/emitir-historico/{alunoId}")
