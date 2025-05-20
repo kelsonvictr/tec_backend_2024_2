@@ -82,9 +82,24 @@ public class MatriculaAlunoService {
         historicoAluno.setCpfAluno(matriculasDoAluno.get(0).getAluno().getCpf());
         historicoAluno.setEmailAluno(matriculasDoAluno.get(0).getAluno().getEmail());
 
+        // Aqui estamos utilizando a API de Stream do Java para transformar uma lista de objetos em outra lista, com outro tipo de objeto.
+        // O método "stream()" cria um fluxo (Stream) a partir da lista de matrículas do aluno.
+        // Esse fluxo nos permite aplicar operações de transformação em cada elemento da lista original.
+
+        // O método "map" é usado para transformar cada elemento da lista original (que é do tipo MatriculaAluno)
+        // em um novo tipo de objeto (DisciplinasAlunoResponse).
+        // Para isso, chamamos a função "mapearParaDisciplinasAlunoResponse", que converte os dados de uma matrícula
+        // em um objeto com os dados da disciplina, nota, status, etc.
+        // Ou seja, para cada matrícula, criamos um "resumo" da disciplina cursada pelo aluno.
+
+        // O método "collect" serve para **coletar** os elementos processados no Stream e montar uma nova coleção.
+        // No caso, usamos "Collectors.toList()" para dizer que queremos uma nova lista com os objetos transformados.
+        // Ao final, teremos uma lista de DisciplinasAlunoResponse pronta para ser usada no histórico do aluno.
+
         List<DisciplinasAlunoResponse> disciplinas = matriculasDoAluno.stream()
-                .map(this::mapearParaDisciplinasAlunoResponse)
-                .collect(Collectors.toList());
+                .map(this::mapearParaDisciplinasAlunoResponse) // transforma cada MatriculaAluno em DisciplinasAlunoResponse
+                .collect(Collectors.toList()); // coleta os resultados em uma nova lista
+
 
         historicoAluno.setDisciplinasAlunoResponses(disciplinas);
         return historicoAluno;
